@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Kanban Board{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- To Do Column -->
+        <div class="col-md-4">
+            <div class="card bg-light">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0">To Do</h5>
+                </div>
+                <div class="card-body" id="todo-column">
+                    {% for task in tasks_todo %}
+                        <div class="card mb-2 task-card" data-task-id="{{ task.id }}">
+                            <div class="card-body">
+                                <h6 class="card-title">{{ task.title }}</h6>
+                                <p class="card-text small mb-2">{{ task.description|truncatechars:100 }}</p>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="badge bg-{% if task.priority == 'high' %}danger{% elif task.priority == 'medium' %}warning{% else %}info{% endif %}">
+                                        {{ task.get_priority_display }}
+                                    </span>
+                                    <small class="text-muted">Due: {{ task.due_date|date:"M d" }}</small>
+                                </div>
+                            </div>
+                        </div>
+                    {% empty %}
+                        <p class="text-muted text-center">No tasks to do</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- In Progress Column -->
+        <div class="col-md-4">
+            <div class="card bg-light">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">In Progress</h5>
+                </div>
+                <div class="card-body" id="in-progress-column">
+                    {% for task in tasks_in_progress %}
+                        <div class="card mb-2 task-card" data-task-id="{{ task.id }}">
+                            <div class="card-body">
+                                <h6 class="card-title">{{ task.title }}</h6>
+                                <p class="card-text small mb-2">{{ task.description|truncatechars:100 }}</p>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="badge bg-{% if task.priority == 'high' %}danger{% elif task.priority == 'medium' %}warning{% else %}info{% endif %}">
+                                        {{ task.get_priority_display }}
+                                    </span>
+                                    <small class="text-muted">Due: {{ task.due_date|date:"M d" }}</small>
+                                </div>
+                            </div>
+                        </div>
+                    {% empty %}
+                        <p class="text-muted text-center">No tasks in progress</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Done Column -->
+        <div class="col-md-4">
+            <div class="card bg-light">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">Done</h5>
+                </div>
+                <div class="card-body" id="done-column">
+                    {% for task in tasks_done %}
+                        <div class="card mb-2 task-card" data-task-id="{{ task.id }}">
+                            <div class="card-body">
+                                <h6 class="card-title">{{ task.title }}</h6>
+                                <p class="card-text small mb-2">{{ task.description|truncatechars:100 }}</p>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="badge bg-{% if task.priority == 'high' %}danger{% elif task.priority == 'medium' %}warning{% else %}info{% endif %}">
+                                        {{ task.get_priority_display }}
+                                    </span>
+                                    <small class="text-muted">Completed: {{ task.completed_date|date:"M d" }}</small>
+                                </div>
+                            </div>
+                        </div>
+                    {% empty %}
+                        <p class="text-muted text-center">No completed tasks</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.14.0/Sortable.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const columns = ['todo-column', 'in-progress-column', 'done-column'];
+    const statusMap = {
+        'todo-column': 'todo',
+        'in-progress-column': 'in_progress',
+        'done-column': 'done'
+    };
+
+    columns.forEach(columnId => {
+        new Sortable(document.getElementById(columnId), {
+            group: 'tasks',
+            animation: 150,
+            onEnd: function(evt) {
+                const taskId = evt.item.dataset.taskId;
+                const newStatus = statusMap[evt.to.id];
+                
+                fetch(`/tasks/${taskId}/status/update/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    },
+                    body: JSON.stringify({ status: newStatus })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status !== 'success') {
+                        // Revert the move if the update failed
+                        evt.from.appendChild(evt.item);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    evt.from.appendChild(evt.item);
+                });
+            }
+        });
+    });
+});
+</script>
+{% endblock %}
+{% endblock %}

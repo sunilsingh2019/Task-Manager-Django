@@ -1,51 +1,149 @@
 {% extends 'base.html' %}
+{% load widget_tweaks %}
 
 {% block title %}Tasks List{% endblock %}
 
 {% block content %}
 <div class="row">
-    <div class="col">
-        <h2>My Tasks</h2>
-        <a href="{% url 'task_create' %}" class="btn btn-primary mb-3">Create New Task</a>
-        
-        <div class="table-responsive">
-            <table class="table table-striped table-hover">
-                <thead>
-                    <tr>
-                        <th>Title</th>
-                        <th>Priority</th>
-                        <th>Status</th>
-                        <th>Due Date</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for task in tasks %}
-                    <tr>
-                        <td>{{ task.title }}</td>
-                        <td>
-                            <span class="badge bg-{% if task.priority == 'high' %}danger{% elif task.priority == 'medium' %}warning{% else %}info{% endif %}">
-                                {{ task.get_priority_display }}
-                            </span>
-                        </td>
-                        <td>
-                            <span class="badge bg-{% if task.status == 'done' %}success{% elif task.status == 'in_progress' %}primary{% else %}secondary{% endif %}">
-                                {{ task.get_status_display }}
-                            </span>
-                        </td>
-                        <td>{{ task.due_date|date:"M d, Y" }}</td>
-                        <td>
-                            <a href="{% url 'task_update' task.pk %}" class="btn btn-sm btn-outline-primary">Edit</a>
-                            <a href="{% url 'task_delete' task.pk %}" class="btn btn-sm btn-outline-danger">Delete</a>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="5" class="text-center">No tasks found.</td>
-                    </tr>
+    <!-- Sidebar with filters and stats -->
+    <div class="col-md-3">
+        <!-- Category Statistics -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Categories</h5>
+                <a href="{% url 'category_create' %}" class="btn btn-sm btn-primary">
+                    <i class="fas fa-plus"></i>
+                </a>
+            </div>
+            <div class="card-body">
+                {% for category in category_stats %}
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span style="color: {{ category.color }}">
+                        <i class="fas fa-circle"></i> {{ category.name }}
+                    </span>
+                    <span class="badge bg-secondary">{{ category.task_count }}</span>
+                </div>
+                {% empty %}
+                <p class="text-muted">No categories yet</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Filter Form -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Filter Tasks</h5>
+            </div>
+            <div class="card-body">
+                <form method="get">
+                    {% for field in filter.form %}
+                    <div class="mb-3">
+                        <label class="form-label">{{ field.label }}</label>
+                        {{ field }}
+                    </div>
                     {% endfor %}
-                </tbody>
-            </table>
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">Apply Filters</button>
+                        <a href="{% url 'task_list' %}" class="btn btn-secondary">Clear Filters</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main content -->
+    <div class="col-md-9">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h2 class="mb-0">My Tasks</h2>
+                    <div>
+                        <a href="{% url 'tag_create' %}" class="btn btn-outline-primary btn-sm me-2">
+                            <i class="fas fa-tag"></i> New Tag
+                        </a>
+                        <a href="{% url 'task_create' %}" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> Create Task
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Title</th>
+                                <th>Category</th>
+                                <th>Priority</th>
+                                <th>Status</th>
+                                <th>Due Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for task in tasks %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'task_detail' task.pk %}" class="text-decoration-none">
+                                        {{ task.title }}
+                                    </a>
+                                    {% if task.tags.exists %}
+                                        <br>
+                                        {% for tag in task.tags.all %}
+                                            <span class="badge bg-secondary">{{ tag.name }}</span>
+                                        {% endfor %}
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if task.category %}
+                                        <span class="badge" style="background-color: {{ task.category.color }}">
+                                            {{ task.category.name }}
+                                        </span>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-{% if task.priority == 'high' %}danger{% elif task.priority == 'medium' %}warning{% else %}info{% endif %}">
+                                        {{ task.get_priority_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-{% if task.status == 'done' %}success{% elif task.status == 'in_progress' %}primary{% else %}secondary{% endif %}">
+                                        {{ task.get_status_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {{ task.due_date|date:"M d, Y" }}
+                                    {% if task.due_date and task.due_date < now and task.status != 'done' %}
+                                        <span class="text-danger">
+                                            <i class="fas fa-exclamation-circle" title="Overdue"></i>
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group">
+                                        <a href="{% url 'task_detail' task.pk %}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        <a href="{% url 'task_update' task.pk %}" class="btn btn-sm btn-outline-warning">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <a href="{% url 'task_delete' task.pk %}" class="btn btn-sm btn-outline-danger">
+                                            <i class="fas fa-trash"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="6" class="text-center">No tasks found.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 </div>
